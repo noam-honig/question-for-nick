@@ -1,9 +1,7 @@
 import { Allow, Entity, Fields, Validators } from "remult";
 
 @Entity<Task>("tasks", {
-    allowApiRead:Allow.authenticated,
-    allowApiInsert:Allow.authenticated,
-    allowApiDelete:"admin",
+    allowApiCrud:true,
     saving: task => {
         task.lastUpdated = new Date()
     }

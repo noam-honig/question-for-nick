@@ -1,24 +1,90 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useState } from "react";
+import { ErrorInfo } from "remult";
+import { remult, setAuthToken } from "./common";
+import { AuthController } from "./shared/AuthController";
+import { Task } from "./shared/Task";
+import { TasksController } from "./shared/TasksController";
+
+const taskRepo = remult.repo(Task);
+async function fetchTasks() {
+  if (!taskRepo.metadata.apiReadAllowed)
+    return [];
+  return taskRepo.find({
+    orderBy: {
+      completed: "asc",
+
+    },
+    where: { completed: undefined }
+  });
+}
 
 function App() {
+  const [tasks, setTasks] = useState<(Task & { error?: ErrorInfo<Task> })[]>([]);
+  useEffect(() => {
+    fetchTasks().then(setTasks);
+  }, []);
+
+  const handleChange = (task: Task, values: Partial<Task>) => {
+    setTasks(tasks.map(t => t === task ? { ...task, ...values } : t));
+  }
+  const saveTask = async (task: Task) => {
+    try {
+      const updatedTask = await taskRepo.save(task);
+      setTasks(tasks.map(t => t === task ? updatedTask : t));
+    }
+    catch (error: any) {
+      setTasks(tasks.map(t => t === task ? { ...task, error } : t));
+      alert(error.message);
+    }
+  }
+  const addTask = () => setTasks([...tasks, new Task()]);
+  const deleteTask = async (task: Task) => {
+    await taskRepo.delete(task);
+    setTasks(tasks.filter(t => t !== task));
+  }
+
+  const setAll = async (completed: boolean) => {
+    await TasksController.setAll(completed);
+    fetchTasks().then(setTasks);
+  }
+
+  const [username, setUsername] = useState("");
+  const signIn = async () => {
+    setAuthToken(await AuthController.signIn(username));
+    fetchTasks().then(setTasks);
+  }
+  const signOut = () => {
+    setAuthToken(null);
+    setTasks([]);
+  }
+  if (!remult.authenticated())
+    return (<div>
+      <p>
+        <input value={username} onChange={e => setUsername(e.target.value)} />
+        <button onClick={signIn}>Sign in</button> <span style={{ color: 'green' }}></span>
+      </p>
+    </div>);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <p>
+        Hi {remult.user.name} <button onClick={signOut}>Sign out </button>
+      </p>
+      {tasks.map(task => <div key={task.id}>
+        <input type="checkbox"
+          onChange={e => handleChange(task, { completed: e.target.checked })}
+          checked={task.completed} />
+        <input value={task.title}
+          onChange={e => handleChange(task, { title: e.target.value })} />
+        <span>{task.error?.modelState?.title}</span>
+        <button onClick={() => saveTask(task)}>Save</button>
+        <button onClick={() => deleteTask(task)}>Delete</button>
+      </div>)}
+      <button onClick={addTask}>Add</button>
+      <div>
+        <button onClick={() => setAll(true)}>set all completed</button>
+        <button onClick={() => setAll(false)}>set all uncompleted</button>
+      </div>
     </div>
   );
 }

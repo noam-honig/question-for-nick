@@ -24,24 +24,7 @@ function App() {
     fetchTasks().then(setTasks);
   }, []);
 
-  const handleChange = (task: Task, values: Partial<Task>) => {
-    setTasks(tasks.map(t => t === task ? { ...task, ...values } : t));
-  }
-  const saveTask = async (task: Task) => {
-    try {
-      const updatedTask = await taskRepo.save(task);
-      setTasks(tasks.map(t => t === task ? updatedTask : t));
-    }
-    catch (error: any) {
-      setTasks(tasks.map(t => t === task ? { ...task, error } : t));
-      alert(error.message);
-    }
-  }
   const addTask = () => setTasks([...tasks, new Task()]);
-  const deleteTask = async (task: Task) => {
-    await taskRepo.delete(task);
-    setTasks(tasks.filter(t => t !== task));
-  }
 
   const setAll = async (completed: boolean) => {
     await TasksController.setAll(completed);
@@ -70,16 +53,37 @@ function App() {
       <p>
         Hi {remult.user.name} <button onClick={signOut}>Sign out </button>
       </p>
-      {tasks.map(task => <div key={task.id}>
-        <input type="checkbox"
-          onChange={e => handleChange(task, { completed: e.target.checked })}
-          checked={task.completed} />
-        <input value={task.title}
-          onChange={e => handleChange(task, { title: e.target.value })} />
-        <span>{task.error?.modelState?.title}</span>
-        <button onClick={() => saveTask(task)}>Save</button>
-        <button onClick={() => deleteTask(task)}>Delete</button>
-      </div>)}
+      {tasks.map(task => {
+        const handleChange = (values: Partial<Task>) => {
+          setTasks(tasks.map(t => t === task ? { ...task, ...values } : t));
+        }
+        const saveTask = async () => {
+          try {
+            const updatedTask = await taskRepo.save(task);
+            setTasks(tasks.map(t => t === task ? updatedTask : t));
+          }
+          catch (error: any) {
+            setTasks(tasks.map(t => t === task ? { ...task, error } : t));
+            alert(error.message);
+          }
+        }
+
+        const deleteTask = async () => {
+          await taskRepo.delete(task);
+          setTasks(tasks.filter(t => t !== task));
+        }
+
+        return <div key={task.id}>
+          <input type="checkbox"
+            onChange={e => handleChange({ completed: e.target.checked })}
+            checked={task.completed} />
+          <input value={task.title}
+            onChange={e => handleChange({ title: e.target.value })} />
+          <span>{task.error?.modelState?.title}</span>
+          <button onClick={saveTask}>Save</button>
+          <button onClick={deleteTask}>Delete</button>
+        </div>
+      })}
       <button onClick={addTask}>Add</button>
       <div>
         <button onClick={() => setAll(true)}>set all completed</button>
